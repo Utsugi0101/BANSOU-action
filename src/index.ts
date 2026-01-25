@@ -4,6 +4,10 @@ import * as github from '@actions/github';
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 type VerifyResult = {
   file: string;
@@ -79,7 +83,12 @@ async function verifyToken(
     }
 
     if (payload.commit !== expectedCommit) {
-      return { file: filePath, ok: false, reason: `commit mismatch: ${payload.commit} !== ${expectedCommit}` };
+      const candidate = typeof payload.commit === 'string' ? payload.commit : '';
+      const isOk = candidate ? await isAncestorCommit(candidate, expectedCommit) : false;
+      if (!isOk) {
+        return { file: filePath, ok: false, reason: `commit mismatch: ${payload.commit} !== ${expectedCommit}` };
+      }
+      core.warning(`commit mismatch accepted (ancestor): ${candidate} -> ${expectedCommit}`);
     }
 
     if (payload.sub !== expectedAuthor) {
@@ -93,6 +102,17 @@ async function verifyToken(
       return { file: filePath, ok: false, reason: 'token expired' };
     }
     return { file: filePath, ok: false, reason: `signature or claim verification failed: ${message}` };
+  }
+}
+
+async function isAncestorCommit(candidate: string, headSha: string): Promise<boolean> {
+  try {
+    await execFileAsync('git', ['merge-base', '--is-ancestor', candidate, headSha], {
+      cwd: process.env.GITHUB_WORKSPACE || process.cwd(),
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 
