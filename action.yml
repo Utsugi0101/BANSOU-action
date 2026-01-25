@@ -1,0 +1,33 @@
+name: "BANSOU PR Gate"
+description: "Validate BANSOU attestation JWTs in PRs"
+author: "bansou-dev"
+inputs:
+  issuer:
+    description: "Expected JWT issuer"
+    required: true
+  jwks_url:
+    description: "JWKS URL for signature verification"
+    required: true
+  required_quiz_id:
+    description: "Required quiz_id to pass the gate"
+    required: true
+  attestations_dir:
+    description: "Directory containing attestation JWTs"
+    required: false
+    default: ".bansou/attestations"
+  fail_on_missing:
+    description: "Fail if no attestation files are found"
+    required: false
+    default: "true"
+  head_sha:
+    description: "PR head SHA to verify against"
+    required: false
+  pr_author:
+    description: "PR author to verify against"
+    required: false
+  repo:
+    description: "Repository full name (owner/repo) to verify against"
+    required: false
+runs:
+  using: "node20"
+  main: "dist/index.js"
