@@ -1,6 +1,9 @@
 name: "BANSOU PR Gate"
 description: "Validate BANSOU attestation JWTs in PRs"
 author: "bansou-dev"
+branding:
+  icon: "lock"
+  color: "orange"
 inputs:
   issuer:
     description: "Expected JWT issuer"

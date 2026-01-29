@@ -9,6 +9,7 @@ on: pull_request
 
 jobs:
   bansou:
+    name: BANSOU Gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +54,12 @@ The action recursively searches `attestations_dir` for `*.jwt` files, for exampl
 ## Required checks setup
 
 To enforce "attestation required for merge", add the workflow job (for example `bansou`) as a required status check in GitHub branch protection settings.
+
+## Publishing (recommended)
+
+1. Build and commit `dist/` (GitHub Actions executes the bundled output).
+2. Create a `v1` tag and push it.
+3. Keep moving the `v1` tag to the latest compatible release.
 
 ## Local run (basic)
 
