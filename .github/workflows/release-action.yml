@@ -1,0 +1,42 @@
+name: Release BANSOU Action
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate dist
+        run: test -f dist/index.js
+
+      - name: Create release note artifact
+        run: |
+          mkdir -p artifacts
+          cp dist/index.js artifacts/index.js
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bansou-action-dist
+          path: artifacts/*

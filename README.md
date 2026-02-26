@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: bansou-dev/bansou-action@v1
+      - uses: Utsugi0101/bansou-action@v1
         with:
           issuer: https://attest.example.com
           jwks_url: https://attest.example.com/.well-known/jwks.json
@@ -84,6 +84,7 @@ To enforce "attestation required for merge", add the workflow job (for example `
 1. Build and commit `dist/` (GitHub Actions executes the bundled output).
 2. Create a `v1` tag and push it.
 3. Keep moving the `v1` tag to the latest compatible release.
+4. Run `.github/workflows/release-action.yml` to validate release artifacts.
 
 ## Local run (basic)
 
