@@ -2,6 +2,11 @@
 
 Validate BANSOU attestation JWTs in pull requests. This action fails the job when a PR does not include a valid attestation for the required quiz.
 
+## 公開先
+
+- Repository: https://github.com/Utsugi0101/BANSOU-action
+- 推奨参照タグ: `Utsugi0101/bansou-action@v1`
+
 ## Usage
 
 ```yaml
