@@ -1,0 +1,15 @@
+on: pull_request
+
+jobs:
+  bansou:
+    name: BANSOU Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Utsugi0101/bansou-action@v1
+        with:
+          issuer: https://attest.example.com
+          jwks_url: https://attest.example.com/.well-known/jwks.json
+          required_quiz_id: core-pr
+          require_file_coverage: true
+          github_token: ${{ github.token }}
