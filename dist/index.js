@@ -88,10 +88,13 @@ function shouldSkipCoverageFile(filePath, attestationsDir) {
     if (file.startsWith('.bansou/checklists/')) {
         return true;
     }
+    if (file.startsWith('scripts/')) {
+        return true;
+    }
     if (file.startsWith('.github/')) {
         return true;
     }
-    if (/\.(md|markdown|json|ya?ml|toml|ini|cfg|lock)$/i.test(file)) {
+    if (/\.(md|markdown|json|ya?ml|toml|ini|cfg|lock|sh|bash|zsh)$/i.test(file)) {
         return true;
     }
     return file.endsWith('.jwt');
