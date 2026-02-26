@@ -37,6 +37,12 @@ inputs:
   github_token:
     description: "GitHub token used to read PR changed files (recommended: github.token)"
     required: false
+  gate_url:
+    description: "BANSOU server URL for ledger-based gate check (if set, JWT file scan is skipped)"
+    required: false
+  gate_api_token:
+    description: "Bearer token for /gate/evaluate (optional if server does not require it)"
+    required: false
   head_sha:
     description: "PR head SHA to verify against"
     required: false

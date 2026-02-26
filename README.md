@@ -33,6 +33,8 @@ jobs:
 - `require_diff_hash_match` (optional, default `false`): Require at least one valid attestation whose `diff_hash` matches the current PR diff.
 - `allow_ancestor_commit` (optional, default `true`): Allow tokens from ancestor commits. Set `false` to require exact `head_sha` tokens.
 - `github_token` (optional): Token for PR file listing API. Use `${{ github.token }}` when `require_file_coverage` is enabled.
+- `gate_url` (optional): BANSOU server URL for ledger-based gate check. If set, the action skips local `*.jwt` file scan and calls `POST /gate/evaluate`.
+- `gate_api_token` (optional): Bearer token for `POST /gate/evaluate` if the server requires auth.
 - `head_sha` (optional): PR head SHA to verify against. Defaults to the PR head SHA from GitHub context.
 - `pr_author` (optional): PR author (expected `sub`). Defaults to the PR author from GitHub context.
 - `repo` (optional): Repository full name (`owner/repo`). Defaults to `GITHUB_REPOSITORY`.
@@ -57,6 +59,21 @@ The action recursively searches `attestations_dir` for `*.jwt` files, for exampl
 - Coverage check ignores generated BANSOU artifacts (`attestations_dir`配下, `.bansou/checklists/**`, `*.jwt`).
 - Coverage check also ignores non-essential files such as `.md`, `.json`, `.yml/.yaml`, `.toml`, `.ini`, `.cfg`, `.lock`, and `.github/**`.
 - If `require_diff_hash_match` is true, at least one required quiz attestation must include a `diff_hash` claim equal to the hash computed from the current PR diff.
+
+## Ledger Mode (Recommended)
+
+Set `gate_url` to use server-managed proof ledger instead of committing JWT files into PRs.
+
+```yaml
+- uses: Utsugi0101/bansou-action@v1
+  with:
+    issuer: ${{ vars.BANSOU_ISSUER }}
+    jwks_url: ${{ vars.BANSOU_JWKS_URL }}
+    required_quiz_id: core-pr
+    gate_url: ${{ vars.BANSOU_GATE_URL }}
+    gate_api_token: ${{ secrets.BANSOU_GATE_API_TOKEN }}
+    github_token: ${{ github.token }}
+```
 
 ## Required checks setup
 

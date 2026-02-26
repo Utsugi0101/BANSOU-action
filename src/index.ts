@@ -19,6 +19,14 @@ type VerifyResult = {
   payload?: JWTPayload;
 };
 
+type GateEvaluateResponse = {
+  ok: boolean;
+  required_files: number;
+  covered_files: number;
+  missing_files: string[];
+  mode: string;
+};
+
 function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
   if (value === undefined || value === '') {
     return defaultValue;
@@ -245,6 +253,40 @@ async function computeDiffHashForFiles(cwd: string, baseSha: string, headSha: st
   return createHash('sha256').update(parts.join('\n')).digest('base64url');
 }
 
+async function evaluateServerLedger(params: {
+  gateUrl: string;
+  gateApiToken: string;
+  repo: string;
+  commit: string;
+  sub: string;
+  requiredQuizId: string;
+  changedFiles: string[];
+}): Promise<GateEvaluateResponse> {
+  const endpoint = new URL('/gate/evaluate', params.gateUrl).toString();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (params.gateApiToken) {
+    headers.Authorization = `Bearer ${params.gateApiToken}`;
+  }
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      repo: params.repo,
+      commit: params.commit,
+      sub: params.sub,
+      required_quiz_id: params.requiredQuizId,
+      changed_files: params.changedFiles,
+    }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`gate evaluate failed (${response.status}): ${text || response.statusText}`);
+  }
+  return (await response.json()) as GateEvaluateResponse;
+}
+
 async function run(): Promise<void> {
   const issuer = core.getInput('issuer', { required: true });
   const jwksUrl = core.getInput('jwks_url', { required: true });
@@ -254,6 +296,8 @@ async function run(): Promise<void> {
   const requireFileCoverage = parseBoolean(core.getInput('require_file_coverage'), false);
   const requireDiffHashMatch = parseBoolean(core.getInput('require_diff_hash_match'), false);
   const allowAncestorCommit = parseBoolean(core.getInput('allow_ancestor_commit'), true);
+  const gateUrl = core.getInput('gate_url') || '';
+  const gateApiToken = core.getInput('gate_api_token') || '';
   const githubToken = core.getInput('github_token') || process.env.GITHUB_TOKEN || '';
 
   const context = github.context;
@@ -279,6 +323,39 @@ async function run(): Promise<void> {
 
   if (!repo) {
     core.setFailed('repo is required but was not provided and could not be inferred from the environment');
+    return;
+  }
+
+  if (gateUrl) {
+    const changedFiles = await collectChangedFiles(
+      repo,
+      githubToken,
+      typeof prNumber === 'number' ? prNumber : undefined,
+      prBaseSha,
+      headSha
+    );
+    if (changedFiles.length === 0) {
+      core.setFailed('gate_url is set, but changed files could not be determined.');
+      return;
+    }
+    const result = await evaluateServerLedger({
+      gateUrl,
+      gateApiToken,
+      repo,
+      commit: headSha,
+      sub: author,
+      requiredQuizId,
+      changedFiles,
+    });
+    if (!result.ok) {
+      const preview = result.missing_files.slice(0, 20).join(', ');
+      core.error(`missing proofs for changed files (${result.missing_files.length}): ${preview}`);
+      core.setFailed('server ledger gate check failed');
+      return;
+    }
+    core.info(
+      `BANSOU server ledger verified (mode=${result.mode}, covered=${result.covered_files}/${result.required_files})`
+    );
     return;
   }
 
