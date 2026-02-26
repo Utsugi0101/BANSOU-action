@@ -52,6 +52,7 @@ The action recursively searches `attestations_dir` for `*.jwt` files, for exampl
   - `payload.quiz_id === required_quiz_id`
 - If no JWTs are found and `fail_on_missing` is true, the job fails.
 - If `require_file_coverage` is true, every changed file in the PR must be covered by at least one valid attestation artifact path.
+- Coverage check ignores generated BANSOU artifacts (`attestations_dir`配下, `.bansou/checklists/**`, `*.jwt`).
 
 ## Required checks setup
 

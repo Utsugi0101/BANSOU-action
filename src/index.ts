@@ -43,6 +43,22 @@ function getArtifactPath(payload: JWTPayload): string | undefined {
   return typeof record.path === 'string' && record.path ? record.path : undefined;
 }
 
+function normalizePosixPath(input: string): string {
+  return input.replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+$/, '');
+}
+
+function shouldSkipCoverageFile(filePath: string, attestationsDir: string): boolean {
+  const file = normalizePosixPath(filePath);
+  const attestDir = normalizePosixPath(attestationsDir);
+  if (attestDir && (file === attestDir || file.startsWith(`${attestDir}/`))) {
+    return true;
+  }
+  if (file.startsWith('.bansou/checklists/')) {
+    return true;
+  }
+  return file.endsWith('.jwt');
+}
+
 async function collectJwtFiles(rootDir: string): Promise<string[]> {
   const results: string[] = [];
   const stack: string[] = [rootDir];
@@ -303,7 +319,8 @@ async function run(): Promise<void> {
       }
     }
 
-    const missingFiles = changedFiles.filter((file) => !coveredPaths.has(file));
+    const coverageTargets = changedFiles.filter((file) => !shouldSkipCoverageFile(file, attestationsDir));
+    const missingFiles = coverageTargets.filter((file) => !coveredPaths.has(file));
     if (missingFiles.length > 0) {
       const preview = missingFiles.slice(0, 20).join(', ');
       core.error(`missing attestation for changed files (${missingFiles.length}): ${preview}`);

@@ -71,6 +71,20 @@ function getArtifactPath(payload) {
     const record = artifact;
     return typeof record.path === 'string' && record.path ? record.path : undefined;
 }
+function normalizePosixPath(input) {
+    return input.replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+$/, '');
+}
+function shouldSkipCoverageFile(filePath, attestationsDir) {
+    const file = normalizePosixPath(filePath);
+    const attestDir = normalizePosixPath(attestationsDir);
+    if (attestDir && (file === attestDir || file.startsWith(`${attestDir}/`))) {
+        return true;
+    }
+    if (file.startsWith('.bansou/checklists/')) {
+        return true;
+    }
+    return file.endsWith('.jwt');
+}
 async function collectJwtFiles(rootDir) {
     const results = [];
     const stack = [rootDir];
@@ -279,7 +293,8 @@ async function run() {
                 coveredPaths.add(artifactPath);
             }
         }
-        const missingFiles = changedFiles.filter((file) => !coveredPaths.has(file));
+        const coverageTargets = changedFiles.filter((file) => !shouldSkipCoverageFile(file, attestationsDir));
+        const missingFiles = coverageTargets.filter((file) => !coveredPaths.has(file));
         if (missingFiles.length > 0) {
             const preview = missingFiles.slice(0, 20).join(', ');
             core.error(`missing attestation for changed files (${missingFiles.length}): ${preview}`);
