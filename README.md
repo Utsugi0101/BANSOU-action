@@ -31,6 +31,7 @@ jobs:
 - `fail_on_missing` (optional, default `true`): Fail if no JWT files are found.
 - `require_file_coverage` (optional, default `false`): Require at least one valid attestation (`required_quiz_id`) for each changed file in the PR.
 - `require_diff_hash_match` (optional, default `false`): Require at least one valid attestation whose `diff_hash` matches the current PR diff.
+- `allow_ancestor_commit` (optional, default `true`): Allow tokens from ancestor commits. Set `false` to require exact `head_sha` tokens.
 - `github_token` (optional): Token for PR file listing API. Use `${{ github.token }}` when `require_file_coverage` is enabled.
 - `head_sha` (optional): PR head SHA to verify against. Defaults to the PR head SHA from GitHub context.
 - `pr_author` (optional): PR author (expected `sub`). Defaults to the PR author from GitHub context.

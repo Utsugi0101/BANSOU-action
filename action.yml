@@ -30,6 +30,10 @@ inputs:
     description: "Require at least one valid attestation with matching PR diff_hash"
     required: false
     default: "false"
+  allow_ancestor_commit:
+    description: "Allow tokens from ancestor commits of PR head (set false to require exact head commit)"
+    required: false
+    default: "true"
   github_token:
     description: "GitHub token used to read PR changed files (recommended: github.token)"
     required: false

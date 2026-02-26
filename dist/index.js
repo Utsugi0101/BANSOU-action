@@ -125,7 +125,7 @@ async function collectJwtFiles(rootDir) {
     }
     return results;
 }
-async function verifyToken(filePath, jwksUrl, issuer, expectedRepo, expectedCommit, expectedAuthor) {
+async function verifyToken(filePath, jwksUrl, issuer, expectedRepo, expectedCommit, expectedAuthor, allowAncestorCommit) {
     let token;
     try {
         token = (await fs.readFile(filePath, 'utf8')).trim();
@@ -147,6 +147,13 @@ async function verifyToken(filePath, jwksUrl, issuer, expectedRepo, expectedComm
             };
         }
         if (payload.commit !== expectedCommit) {
+            if (!allowAncestorCommit) {
+                return {
+                    file: filePath,
+                    status: 'ignored',
+                    reason: `commit mismatch: ${payload.commit} !== ${expectedCommit}`,
+                };
+            }
             const candidate = typeof payload.commit === 'string' ? payload.commit : '';
             const isOk = candidate ? await isAncestorCommit(candidate, expectedCommit) : false;
             if (!isOk) {
@@ -244,6 +251,7 @@ async function run() {
     const failOnMissing = parseBoolean(core.getInput('fail_on_missing'), true);
     const requireFileCoverage = parseBoolean(core.getInput('require_file_coverage'), false);
     const requireDiffHashMatch = parseBoolean(core.getInput('require_diff_hash_match'), false);
+    const allowAncestorCommit = parseBoolean(core.getInput('allow_ancestor_commit'), true);
     const githubToken = core.getInput('github_token') || process.env.GITHUB_TOKEN || '';
     const context = github.context;
     const prHeadSha = context.payload.pull_request?.head?.sha;
@@ -283,7 +291,7 @@ async function run() {
     let ignoredCount = 0;
     const validResults = [];
     for (const file of files) {
-        const result = await verifyToken(file, jwksUrl, issuer, repo, headSha, author);
+        const result = await verifyToken(file, jwksUrl, issuer, repo, headSha, author, allowAncestorCommit);
         if (result.status === 'invalid') {
             invalidCount += 1;
             core.error(`${path.relative(process.cwd(), result.file)}: ${result.reason}`);
