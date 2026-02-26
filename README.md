@@ -18,6 +18,8 @@ jobs:
           issuer: https://attest.example.com
           jwks_url: https://attest.example.com/.well-known/jwks.json
           required_quiz_id: core-pr
+          require_file_coverage: true
+          github_token: ${{ github.token }}
 ```
 
 ## Inputs
@@ -27,6 +29,8 @@ jobs:
 - `required_quiz_id` (required): Required `quiz_id` that must exist in at least one valid attestation.
 - `attestations_dir` (optional, default `.bansou/attestations`): Directory to scan for `*.jwt` files.
 - `fail_on_missing` (optional, default `true`): Fail if no JWT files are found.
+- `require_file_coverage` (optional, default `false`): Require at least one valid attestation (`required_quiz_id`) for each changed file in the PR.
+- `github_token` (optional): Token for PR file listing API. Use `${{ github.token }}` when `require_file_coverage` is enabled.
 - `head_sha` (optional): PR head SHA to verify against. Defaults to the PR head SHA from GitHub context.
 - `pr_author` (optional): PR author (expected `sub`). Defaults to the PR author from GitHub context.
 - `repo` (optional): Repository full name (`owner/repo`). Defaults to `GITHUB_REPOSITORY`.
@@ -42,14 +46,12 @@ The action recursively searches `attestations_dir` for `*.jwt` files, for exampl
 ## Verification rules (MVP)
 
 - All discovered JWTs are verified with `jose` using the provided JWKS URL and issuer.
-- Each JWT must satisfy:
-  - `payload.repo === repo`
-  - `payload.commit === head_sha`
-  - `payload.sub === pr_author`
-- At least one valid JWT must satisfy:
+- JWTs that are valid but do not match this PR context (`repo`, `commit`, `sub`) are ignored.
+- If any JWT is malformed/expired/signature-invalid, the job fails.
+- At least one context-matching valid JWT must satisfy:
   - `payload.quiz_id === required_quiz_id`
-- If any JWT is invalid, the job fails and the reason is logged.
 - If no JWTs are found and `fail_on_missing` is true, the job fails.
+- If `require_file_coverage` is true, every changed file in the PR must be covered by at least one valid attestation artifact path.
 
 ## Required checks setup
 

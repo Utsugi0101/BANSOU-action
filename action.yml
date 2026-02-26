@@ -22,6 +22,13 @@ inputs:
     description: "Fail if no attestation files are found"
     required: false
     default: "true"
+  require_file_coverage:
+    description: "Require attestations for all changed files in the PR"
+    required: false
+    default: "false"
+  github_token:
+    description: "GitHub token used to read PR changed files (recommended: github.token)"
+    required: false
   head_sha:
     description: "PR head SHA to verify against"
     required: false
