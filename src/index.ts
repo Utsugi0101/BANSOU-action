@@ -6,6 +6,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { createHash } from 'crypto';
 
 const execFileAsync = promisify(execFile);
 
@@ -41,6 +42,11 @@ function getArtifactPath(payload: JWTPayload): string | undefined {
   }
   const record = artifact as Record<string, unknown>;
   return typeof record.path === 'string' && record.path ? record.path : undefined;
+}
+
+function getPayloadString(payload: JWTPayload, key: string): string | undefined {
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === 'string' && value ? value : undefined;
 }
 
 function normalizePosixPath(input: string): string {
@@ -203,6 +209,28 @@ async function collectChangedFiles(
   return [];
 }
 
+async function getDiffForFile(cwd: string, baseSha: string, headSha: string, filePath: string): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync('git', ['diff', `${baseSha}..${headSha}`, '--', filePath], {
+      cwd,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return stdout;
+  } catch {
+    return '';
+  }
+}
+
+async function computeDiffHashForFiles(cwd: string, baseSha: string, headSha: string, files: string[]): Promise<string> {
+  const sorted = [...files].sort();
+  const parts: string[] = [];
+  for (const filePath of sorted) {
+    const diff = await getDiffForFile(cwd, baseSha, headSha, filePath);
+    parts.push(`${filePath}\n${diff.replace(/\r\n/g, '\n')}`);
+  }
+  return createHash('sha256').update(parts.join('\n')).digest('base64url');
+}
+
 async function run(): Promise<void> {
   const issuer = core.getInput('issuer', { required: true });
   const jwksUrl = core.getInput('jwks_url', { required: true });
@@ -210,6 +238,7 @@ async function run(): Promise<void> {
   const attestationsDir = core.getInput('attestations_dir') || '.bansou/attestations';
   const failOnMissing = parseBoolean(core.getInput('fail_on_missing'), true);
   const requireFileCoverage = parseBoolean(core.getInput('require_file_coverage'), false);
+  const requireDiffHashMatch = parseBoolean(core.getInput('require_diff_hash_match'), false);
   const githubToken = core.getInput('github_token') || process.env.GITHUB_TOKEN || '';
 
   const context = github.context;
@@ -292,8 +321,9 @@ async function run(): Promise<void> {
     return;
   }
 
-  if (requireFileCoverage) {
-    const changedFiles = await collectChangedFiles(
+  let changedFiles: string[] = [];
+  if (requireFileCoverage || requireDiffHashMatch) {
+    changedFiles = await collectChangedFiles(
       repo,
       githubToken,
       typeof prNumber === 'number' ? prNumber : undefined,
@@ -303,9 +333,17 @@ async function run(): Promise<void> {
 
     if (changedFiles.length === 0) {
       core.setFailed(
-        'require_file_coverage is enabled, but changed files could not be determined. Provide github_token or ensure base/head commits are available.'
+        'changed files could not be determined. Provide github_token or ensure base/head commits are available.'
       );
       return;
+    }
+  }
+
+  const coverageTargets = changedFiles.filter((file) => !shouldSkipCoverageFile(file, attestationsDir));
+
+  if (requireFileCoverage) {
+    if (coverageTargets.length === 0) {
+      core.warning('No coverage target files after filtering generated artifacts.');
     }
 
     const coveredPaths = new Set<string>();
@@ -319,12 +357,34 @@ async function run(): Promise<void> {
       }
     }
 
-    const coverageTargets = changedFiles.filter((file) => !shouldSkipCoverageFile(file, attestationsDir));
     const missingFiles = coverageTargets.filter((file) => !coveredPaths.has(file));
     if (missingFiles.length > 0) {
       const preview = missingFiles.slice(0, 20).join(', ');
       core.error(`missing attestation for changed files (${missingFiles.length}): ${preview}`);
       core.setFailed('changed file coverage check failed');
+      return;
+    }
+  }
+
+  if (requireDiffHashMatch) {
+    if (!prBaseSha) {
+      core.setFailed('require_diff_hash_match is enabled, but base SHA is unavailable from PR context.');
+      return;
+    }
+
+    const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+    const expectedDiffHash = await computeDiffHashForFiles(workspace, prBaseSha, headSha, coverageTargets);
+    const hasMatch = requiredQuizResults.some((result) => {
+      if (!result.payload) {
+        return false;
+      }
+      const tokenDiffHash = getPayloadString(result.payload, 'diff_hash');
+      return tokenDiffHash === expectedDiffHash;
+    });
+
+    if (!hasMatch) {
+      core.error('No attestation matched expected PR diff_hash.');
+      core.setFailed('diff_hash verification failed');
       return;
     }
   }

@@ -26,6 +26,10 @@ inputs:
     description: "Require attestations for all changed files in the PR"
     required: false
     default: "false"
+  require_diff_hash_match:
+    description: "Require at least one valid attestation with matching PR diff_hash"
+    required: false
+    default: "false"
   github_token:
     description: "GitHub token used to read PR changed files (recommended: github.token)"
     required: false
