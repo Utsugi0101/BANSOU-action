@@ -54,6 +54,7 @@ The action recursively searches `attestations_dir` for `*.jwt` files, for exampl
 - If no JWTs are found and `fail_on_missing` is true, the job fails.
 - If `require_file_coverage` is true, every changed file in the PR must be covered by at least one valid attestation artifact path.
 - Coverage check ignores generated BANSOU artifacts (`attestations_dir`配下, `.bansou/checklists/**`, `*.jwt`).
+- Coverage check also ignores non-essential files such as `.md`, `.json`, `.yml/.yaml`, `.toml`, `.ini`, `.cfg`, `.lock`, and `.github/**`.
 - If `require_diff_hash_match` is true, at least one required quiz attestation must include a `diff_hash` claim equal to the hash computed from the current PR diff.
 
 ## Required checks setup

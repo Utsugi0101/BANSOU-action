@@ -88,6 +88,12 @@ function shouldSkipCoverageFile(filePath, attestationsDir) {
     if (file.startsWith('.bansou/checklists/')) {
         return true;
     }
+    if (file.startsWith('.github/')) {
+        return true;
+    }
+    if (/\.(md|markdown|json|ya?ml|toml|ini|cfg|lock)$/i.test(file)) {
+        return true;
+    }
     return file.endsWith('.jwt');
 }
 async function collectJwtFiles(rootDir) {
@@ -298,12 +304,6 @@ async function run() {
         core.setFailed('No attestations matched the current PR context (repo/commit/author).');
         return;
     }
-    const requiredQuizResults = validResults.filter((result) => result.payload?.quiz_id === requiredQuizId);
-    if (requiredQuizResults.length === 0) {
-        core.error(`required quiz_id missing: ${requiredQuizId}`);
-        core.setFailed('required quiz_id missing');
-        return;
-    }
     let changedFiles = [];
     if (requireFileCoverage || requireDiffHashMatch) {
         changedFiles = await collectChangedFiles(repo, githubToken, typeof prNumber === 'number' ? prNumber : undefined, prBaseSha, headSha);
@@ -313,10 +313,17 @@ async function run() {
         }
     }
     const coverageTargets = changedFiles.filter((file) => !shouldSkipCoverageFile(file, attestationsDir));
+    if ((requireFileCoverage || requireDiffHashMatch) && coverageTargets.length === 0) {
+        core.info('No quiz-required files in this PR after filtering non-essential/generated files. Skipping gate.');
+        return;
+    }
+    const requiredQuizResults = validResults.filter((result) => result.payload?.quiz_id === requiredQuizId);
+    if (requiredQuizResults.length === 0) {
+        core.error(`required quiz_id missing: ${requiredQuizId}`);
+        core.setFailed('required quiz_id missing');
+        return;
+    }
     if (requireFileCoverage) {
-        if (coverageTargets.length === 0) {
-            core.warning('No coverage target files after filtering generated artifacts.');
-        }
         const coveredPaths = new Set();
         for (const result of requiredQuizResults) {
             if (!result.payload) {
